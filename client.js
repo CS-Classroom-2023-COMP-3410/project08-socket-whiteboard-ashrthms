@@ -8,13 +8,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const connectionStatus = document.getElementById('connection-status');
   const userCount = document.getElementById('user-count');
 
+  let boardState = [];
+
   function resizeCanvas() {
     // TODO: Set the canvas width and height based on its parent element
     canvas.width = canvas.parentElement.clientWidth;
     canvas.height = canvas.parentElement.clientHeight;
     // Redraw the canvas with the current board state when resized
     // TODO: Call redrawCanvas() function
-    redrawCanvas()
+    redrawCanvas(boardState)
   }
 
   // Initialize canvas size
@@ -23,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Handle window resize
   // TODO: Add an event listener for the 'resize' event that calls resizeCanvas
-  // document.addEventListener('resize', canvas.parentElement.clientWidth | canvas.parentElement.clientHeight, resizeCanvas())
+  window.addEventListener('resize', resizeCanvas)
 
   // Drawing variables
   let isDrawing = false;
@@ -43,11 +45,19 @@ document.addEventListener('DOMContentLoaded', () => {
       userCount.innerText = numUsers;
     })
 
-    socket.on('draw', () => {
+    socket.on('boardState', (state) => {
+      console.log('boardstate')
+      console.log(state)
+      redrawCanvas(state)
+    })
+
+    socket.on('draw', (drawData) => {
       boardState.push(drawData);
+      drawLine(drawData.x0, drawData.y0, drawData.x1, drawData.y1, drawData.color, drawData.size);
     })
 
     socket.on('clear', () => {
+      boardState=[];
       context.clearRect(0, 0, canvas.width, canvas.height);
     })
 
@@ -55,6 +65,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Canvas event handlers
   // TODO: Add event listeners for mouse events (mousedown, mousemove, mouseup, mouseout)
+  canvas.addEventListener('mousedown', startDrawing)
+  canvas.addEventListener('mousemove', draw)
+  canvas.addEventListener('mouseup', stopDrawing)
+  canvas.addEventListener('mouseout',stopDrawing)
 
   // Touch support (optional)
   // TODO: Add event listeners for touch events (touchstart, touchmove, touchend, touchcancel)
@@ -64,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Clear button event handler
   // TODO: Add event listener for the clear button
-  document.addEventListener('onClick', clearButton, clearCanvas());
+  clearButton.addEventListener('click', clearCanvas);
 
   // Update brush size display
   // TODO: Add event listener for brush size input changes
@@ -76,22 +90,39 @@ document.addEventListener('DOMContentLoaded', () => {
   function startDrawing(e) {
     // TODO: Set isDrawing to true and capture initial coordinates
     isDrawing = true;
-    coords = getCoordinates()
+    coords = getCoordinates(e)
+    lastX = coords.x
+    lastY = coords.y
   }
 
   function draw(e) {
     // TODO: If not drawing, return
     if (!isDrawing) {return};
     // TODO: Get current coordinates
-    
+    coords = getCoordinates(e)
 
     // TODO: Emit 'draw' event to the server with drawing data
-    socket.emit('draw', data)
+    socket.emit('draw', {
+      x0: lastX,
+      y0: lastY,
+      x1: coords.x,
+      y1: coords.y,
+      color: colorInput.value,
+      size: brushSizeInput.value
+    })
     // TODO: Update last position
+    lastX = coords["x"]
+    lastY = coords["y"]
   }
 
   function drawLine(x0, y0, x1, y1, color, size) {
     // TODO: Draw a line on the canvas using the provided parameters
+    context.strokeStyle = color;
+    context.lineWidth = size;
+    context.beginPath();
+    context.moveTo(x0, y0);
+    context.lineTo(x1, y1);
+    context.stroke();
   }
 
   function stopDrawing() {
@@ -101,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function clearCanvas() {
     // TODO: Emit 'clear' event to the server
-    socket.emit('clear')
+    socket.emit('clear');
   }
 
   function redrawCanvas(boardState = []) {
@@ -109,26 +140,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // TODO: Clear the canvas
     context.clearRect(0, 0, canvas.width, canvas.height);
     // TODO: Redraw all lines from the board state
+    boardState.forEach(item => {
+      drawLine(item.x0, item.y0, item.x1, item.y1, item.color, item.size);
+    });
   }
 
   // Helper function to get coordinates from mouse or touch event
   function getCoordinates(e) {
-    if (e.type.includes('touch')) {// Get first touch point
-      const touch = e.touches[0] || e.changedTouches[0];
-      // Get canvas position
-      const rect = canvas.getBoundingClientRect();
-      // Calculate coordinates relative to canvas
-      return {
-        x: touch.clientX - rect.left,
-        y: touch.clientY - rect.top
-      };
-    } else {// Mouse event
+    // if (e.type.includes('touch')) {// Get first touch point
+    //   const touch = e.touches[0] || e.changedTouches[0];
+    //   // Get canvas position
+    //   const rect = canvas.getBoundingClientRect();
+    //   // Calculate coordinates relative to canvas
+    //   return {
+    //     x: touch.clientX - rect.left,
+    //     y: touch.clientY - rect.top
+    //   };
+    // } else {// Mouse event
       return {
         x: e.offsetX,
         y: e.offsetY
       };
     }
-  }
+  // }
 
   // Handle touch events
   function handleTouchStart(e) {
@@ -139,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     isDrawing = true;
     lastX = coords.x;
     lastY = coords.y;
-    startDrawing()
+    startDrawing(e)
   }
 
   function handleTouchMove(e) {

@@ -30,6 +30,7 @@ io.on('connection', (socket) => {
   socket.on('clear', () => {
     boardState = [];
     io.emit('clear');
+    // console.log('cleared')
   });
 
   socket.on('disconnect', () => {
