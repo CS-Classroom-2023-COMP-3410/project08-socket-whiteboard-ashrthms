@@ -48,7 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('boardState', (state) => {
       console.log('boardstate')
       console.log(state)
-      redrawCanvas(state)
+      setTimeout(()=>{ //delay as it sometimes wouldn't load right, couldn't figure it out
+        redrawCanvas(state)
+      }, 1000);
     })
 
     socket.on('draw', (drawData) => {
